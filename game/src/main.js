@@ -33,11 +33,17 @@ const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(0xcfe4ef, 700, 3600);
 const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.5, 9000);
 
-const hemi = new THREE.HemisphereLight(0xbfd9ff, 0x4a6b3a, 0.85);
+const hemi = new THREE.HemisphereLight(0xbfd9ff, 0x4a6b3a, 1.0);
 scene.add(hemi);
-const sunLight = new THREE.DirectionalLight(0xfff2cc, 1.05);
+const sunLight = new THREE.DirectionalLight(0xffe9b0, 1.2);
 sunLight.position.set(-1400, 900, -900);
 scene.add(sunLight);
+// Soft fill from the opposite side: slopes facing away from the sun
+// (the volcano flank in the rings shot) went nearly black under Lambert
+// alone. No shadows in the scene, so a fill light only lifts the dark side.
+const fillLight = new THREE.DirectionalLight(0xdfeaff, 0.5);
+fillLight.position.set(1200, 600, 1400);
+scene.add(fillLight);
 
 const world = createWorld(scene);
 const sky = createSky(scene);
@@ -366,17 +372,17 @@ function updateCamera(dt) {
   );
   if (screen === 'menu') {
     menuOrbit += dt * 0.12;
-    const r = 34;
+    const r = 55;
     camTarget.set(
       s.position.x + Math.sin(menuOrbit) * r,
-      s.position.y + 9,
+      s.position.y + 15,
       s.position.z + Math.cos(menuOrbit) * r,
     );
     // Look at a point to the side of the plane, so the plane itself sits
     // off-centre — the menu panel covers the middle of the screen.
     const viewDir = new THREE.Vector3().subVectors(s.position, camTarget).normalize();
     const right = new THREE.Vector3().crossVectors(viewDir, new THREE.Vector3(0, 1, 0)).normalize();
-    camLook.copy(s.position).add(new THREE.Vector3(0, 2, 0)).addScaledVector(right, 15);
+    camLook.copy(s.position).add(new THREE.Vector3(0, 2, 0)).addScaledVector(right, 22);
     if (SHOT_MODE) camera.position.copy(camTarget);
     else camera.position.lerp(camTarget, 1 - Math.exp(-2.5 * dt));
     camera.lookAt(camLook);
@@ -394,8 +400,8 @@ function updateCamera(dt) {
   // Chase: behind and above, easing after the plane, never snapping.
   // In screenshot mode the camera snaps: a lerping camera would still be
   // hundreds of metres out when the shot is taken after a few frames.
-  camTarget.copy(s.position).addScaledVector(fwd, -26);
-  camTarget.y += 9;
+  camTarget.copy(s.position).addScaledVector(fwd, -22);
+  camTarget.y += 8;
   const ground = heightAt(camTarget.x, camTarget.z) + 3;
   if (camTarget.y < ground) camTarget.y = ground;
   if (SHOT_MODE) camera.position.copy(camTarget);
@@ -548,7 +554,7 @@ function frame() {
   hud.draw(aircraft.state, { name: mission.name, score, progress: missionProgress() }, {
     menu: screen === 'menu',
     toast: toastText,
-  });
+  }, { rings: rings.positions(), showRings: missionId === 'rings' });
   if (screen === 'menu') {
     // Keep the parked plane visible behind the menu overlay.
     aircraft.state.position.y = heightAt(aircraft.state.position.x, aircraft.state.position.z) + 1.4;

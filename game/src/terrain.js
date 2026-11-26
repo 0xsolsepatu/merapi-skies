@@ -55,11 +55,19 @@ export function heightAt(x, z) {
 function colourFor(x, z, h, rngPatch) {
   const c = new THREE.Color();
   const patch = fbm(x * 0.004 + 40, z * 0.004 - 17, SEED + 77, 3);
+  // Slope from the height function itself (build-time only, once per vertex):
+  // steep HIGH ground reads as bare rock, which gives the volcano and
+  // ridges their shape. Kept above h>85 on purpose — painting rock on
+  // mid-elevation hillsides turned the whole island grey (v2 first pass).
+  const slope = Math.max(
+    Math.abs(heightAt(x + 12, z) - h) / 12,
+    Math.abs(heightAt(x, z + 12) - h) / 12,
+  );
   if (h < 3.5) {
     c.set(PALETTE.sand);
-  } else if (h > 150) {
+  } else if (h > 170) {
     c.set(PALETTE.volcanoRock);
-  } else if (h > 105) {
+  } else if (h > 135 || (slope > 0.6 && h > 120)) {
     c.set(PALETTE.rock);
   } else if (patch > 0.62) {
     c.set(PALETTE.fieldA);
@@ -116,6 +124,17 @@ function buildSea(scene) {
   sea.position.y = WORLD.seaLevel;
   sea.name = 'sea';
   scene.add(sea);
+  // Shallow turquoise band hugging the coast: where the island's slope
+  // sinks below it the band hides under the terrain, so it reads as a
+  // lagoon fringe instead of a flat blue disc.
+  const shallow = new THREE.Mesh(
+    new THREE.RingGeometry(880, 1320, 64),
+    new THREE.MeshBasicMaterial({ color: PALETTE.seaShallow, transparent: true, opacity: 0.5, side: THREE.DoubleSide }),
+  );
+  shallow.rotation.x = -Math.PI / 2;
+  shallow.position.y = WORLD.seaLevel + 0.4;
+  shallow.name = 'sea-shallow';
+  scene.add(shallow);
 }
 
 function runwayMaterial(surface) {
@@ -182,10 +201,14 @@ function buildTrees(scene, rng) {
   const count = 650;
   const trunkGeo = new THREE.CylinderGeometry(0.7, 1.1, 7, 5);
   const canopyGeo = new THREE.ConeGeometry(4.4, 13, 7);
+  const topGeo = new THREE.ConeGeometry(2.9, 9, 7);
   const trunkMat = new THREE.MeshLambertMaterial({ color: '#6b4a2c' });
-  const canopyMat = new THREE.MeshLambertMaterial({ color: '#2f7a33' });
+  const canopyMat = new THREE.MeshLambertMaterial({ color: '#ffffff' });
   const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, count);
   const canopies = new THREE.InstancedMesh(canopyGeo, canopyMat, count);
+  const tops = new THREE.InstancedMesh(topGeo, canopyMat.clone(), count);
+  const greens = ['#2f7a33', '#357f2f', '#2a6e35', '#3d8a37', '#2e7d32'];
+  const tmpColor = new THREE.Color();
   const m = new THREE.Matrix4();
   const q = new THREE.Quaternion();
   const s = new THREE.Vector3();
@@ -213,14 +236,26 @@ function buildTrees(scene, rng) {
     p.y = h + (7 + 6) * scale;
     m.compose(p, q, s);
     canopies.setMatrixAt(placed, m);
+    // Second, smaller tier on top, so a tree reads as a tree, not a cone.
+    p.y = h + (7 + 13 + 3.5) * scale;
+    m.compose(p, q, s);
+    tops.setMatrixAt(placed, m);
+    tmpColor.set(greens[Math.floor(rng.range(0, greens.length))]);
+    canopies.setColorAt(placed, tmpColor);
+    tops.setColorAt(placed, tmpColor);
     placed += 1;
   }
   trunks.count = placed;
   canopies.count = placed;
+  tops.count = placed;
   trunks.instanceMatrix.needsUpdate = true;
   canopies.instanceMatrix.needsUpdate = true;
+  tops.instanceMatrix.needsUpdate = true;
+  if (canopies.instanceColor) canopies.instanceColor.needsUpdate = true;
+  if (tops.instanceColor) tops.instanceColor.needsUpdate = true;
   scene.add(trunks);
   scene.add(canopies);
+  scene.add(tops);
 }
 
 function buildVillages(scene, rng) {
@@ -256,6 +291,41 @@ function buildVillages(scene, rng) {
   }
 }
 
+function smokeTexture() {
+  const c = document.createElement('canvas');
+  c.width = 128;
+  c.height = 128;
+  const g = c.getContext('2d');
+  const grad = g.createRadialGradient(64, 64, 4, 64, 64, 62);
+  grad.addColorStop(0, 'rgba(205,205,200,0.9)');
+  grad.addColorStop(0.6, 'rgba(185,185,180,0.5)');
+  grad.addColorStop(1, 'rgba(180,180,175,0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 128, 128);
+  return new THREE.CanvasTexture(c);
+}
+
+function buildSmoke(scene) {
+  // A lazy grey plume over the crater: the volcano's landmark, static so
+  // a screenshot is reproducible.
+  const v = WORLD.volcano;
+  const tex = smokeTexture();
+  const rng = makeRng(SEED + 913);
+  const topY = v.height + 26;
+  for (let i = 0; i < 7; i += 1) {
+    const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0.65 - i * 0.05, depthWrite: false });
+    const sprite = new THREE.Sprite(mat);
+    const sc = 95 + i * 42;
+    sprite.scale.set(sc, sc * 0.75, 1);
+    sprite.position.set(
+      v.x + rng.range(-24, 24) + i * 14,
+      topY + i * 26,
+      v.z + rng.range(-18, 18) - i * 6,
+    );
+    scene.add(sprite);
+  }
+}
+
 export function createWorld(scene) {
   const rng = makeRng(SEED);
   buildGround(scene);
@@ -263,6 +333,7 @@ export function createWorld(scene) {
   const windsocks = buildRunways(scene);
   buildTrees(scene, rng);
   buildVillages(scene, rng);
+  buildSmoke(scene);
   return {
     heightAt,
     update(dt, time) {

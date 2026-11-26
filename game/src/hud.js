@@ -1,7 +1,7 @@
 // The instrument panel: a 2D canvas overlay drawn over the 3D view.
 // Big bold numbers on dark translucent plates, because the judge sees these
 // shrunk onto a contact sheet — small grey text would vanish there.
-import { PALETTE } from './config.js';
+import { PALETTE, RUNWAYS, WORLD } from './config.js';
 import { clamp } from './random.js';
 
 function panel(g, x, y, w, h) {
@@ -60,7 +60,8 @@ export function createHud(canvas) {
 
   // state: aircraft state; mission: { name, objective, progress, timeLeft,
   // score, detail }; flags: { paused } — draws one full frame of instruments.
-  function draw(state, mission, flags) {
+  // map (optional): { rings: [{x, z, passed}], showRings } for the minimap.
+  function draw(state, mission, flags, map) {
     const W = canvas.width;
     const H = canvas.height;
     g.clearRect(0, 0, W, H);
@@ -187,6 +188,74 @@ export function createHud(canvas) {
     label(g, `FLAPS ${state.flaps ? 'DOWN' : 'UP'}`, W - 210, H - 52);
     label(g, state.onGround ? 'ON GROUND' : state.stalled ? 'STALL!' : 'AIRBORNE', W - 210, H - 30,
       state.stalled ? PALETTE.hudRed : '#9fb6cc');
+
+    // --- Minimap, bottom right above the flaps panel ---
+    // Island disc, runways, rings (Ring Run) and the plane's own triangle.
+    // Kept small (168x132) so it reads as an instrument, not a second game.
+    const mapX = W - 184;
+    const mapY = H - 216;
+    const mapW = 168;
+    const mapH = 132;
+    panel(g, mapX, mapY, mapW, mapH);
+    label(g, 'PULAU MERAPI', mapX + 14, mapY + 20);
+    const mcx = mapX + mapW / 2;
+    const mcy = mapY + 24 + 46;
+    const mR = 46;
+    const mScale = mR / (WORLD.size / 2);
+    const toMap = (x, z) => [mcx + x * mScale, mcy + z * mScale];
+    g.beginPath();
+    g.arc(mcx, mcy, mR, 0, Math.PI * 2);
+    g.fillStyle = 'rgba(70,130,70,0.55)';
+    g.fill();
+    g.strokeStyle = 'rgba(255,255,255,0.35)';
+    g.lineWidth = 1;
+    g.stroke();
+    // Volcano marker.
+    const [vx, vy] = toMap(WORLD.volcano.x, WORLD.volcano.z);
+    g.fillStyle = '#ff8a5c';
+    g.beginPath();
+    g.moveTo(vx, vy - 6);
+    g.lineTo(vx - 5, vy + 4);
+    g.lineTo(vx + 5, vy + 4);
+    g.closePath();
+    g.fill();
+    // Runways as short strips.
+    g.strokeStyle = '#f4f8ff';
+    g.lineWidth = 2;
+    for (const rw of RUNWAYS) {
+      const hr = (rw.heading * Math.PI) / 180;
+      const [rx, ry] = toMap(rw.x, rw.z);
+      const dx = Math.sin(hr) * rw.length * 0.5 * mScale;
+      const dz = Math.cos(hr) * rw.length * 0.5 * mScale;
+      g.beginPath();
+      g.moveTo(rx - dx, ry - dz);
+      g.lineTo(rx + dx, ry + dz);
+      g.stroke();
+    }
+    // Rings, when the Ring Run is showing them.
+    if (map && map.showRings && map.rings) {
+      for (const ring of map.rings) {
+        const [rx, ry] = toMap(ring.x, ring.z);
+        g.fillStyle = ring.passed ? PALETTE.ringDone : PALETTE.ring;
+        g.beginPath();
+        g.arc(rx, ry, 4, 0, Math.PI * 2);
+        g.fill();
+      }
+    }
+    // The plane: a white triangle rotated by heading. Map +y is world +z,
+    // canvas +y is down, so the nose angle is PI - heading.
+    const [px, py] = toMap(state.position.x, state.position.z);
+    g.save();
+    g.translate(px, py);
+    g.rotate(Math.PI - state.heading);
+    g.fillStyle = '#ffffff';
+    g.beginPath();
+    g.moveTo(0, -7);
+    g.lineTo(-5, 6);
+    g.lineTo(5, 6);
+    g.closePath();
+    g.fill();
+    g.restore();
 
     // --- Warnings, centre screen ---
     const warnings = [];

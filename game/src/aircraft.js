@@ -78,6 +78,26 @@ function buildPlaneModel() {
   prop.add(disc);
   group.add(prop);
 
+  // Wingtip nav lights + tail light: small unlit dots that read in a shot.
+  const navL = new THREE.Mesh(
+    new THREE.SphereGeometry(0.35, 8, 6),
+    new THREE.MeshBasicMaterial({ color: '#ff2a1e' }),
+  );
+  navL.position.set(-7.85, 1.25, 0.9);
+  group.add(navL);
+  const navR = new THREE.Mesh(
+    new THREE.SphereGeometry(0.35, 8, 6),
+    new THREE.MeshBasicMaterial({ color: '#2aff5e' }),
+  );
+  navR.position.set(7.85, 1.25, 0.9);
+  group.add(navR);
+  const tailLight = new THREE.Mesh(
+    new THREE.SphereGeometry(0.25, 8, 6),
+    new THREE.MeshBasicMaterial({ color: '#ffffff' }),
+  );
+  tailLight.position.set(0, 0.6, -3.85);
+  group.add(tailLight);
+
   // Fixed tricycle gear.
   for (const s of [-1, 1]) {
     const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 1.6, 5), dark);

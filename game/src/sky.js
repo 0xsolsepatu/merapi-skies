@@ -56,8 +56,8 @@ export function createSky(scene) {
   sun.lookAt(0, 0, 0);
   scene.add(sun);
   const glow = new THREE.Mesh(
-    new THREE.CircleGeometry(190, 32),
-    new THREE.MeshBasicMaterial({ color: '#ffe9a8', transparent: true, opacity: 0.35, fog: false }),
+    new THREE.CircleGeometry(260, 32),
+    new THREE.MeshBasicMaterial({ color: '#ffe9a8', transparent: true, opacity: 0.45, fog: false }),
   );
   glow.position.copy(sun.position).multiplyScalar(1.001);
   glow.lookAt(0, 0, 0);
@@ -66,12 +66,18 @@ export function createSky(scene) {
   const tex = cloudTexture();
   const clouds = [];
   const rng = makeRng(99);
-  for (let i = 0; i < 42; i += 1) {
+  for (let i = 0; i < 60; i += 1) {
     const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: rng.range(0.55, 0.9), depthWrite: false });
     const sprite = new THREE.Sprite(mat);
-    const scale = rng.range(180, 420);
+    const scale = rng.range(220, 540);
     sprite.scale.set(scale, scale * 0.45, 1);
-    sprite.position.set(rng.range(-2600, 2600), rng.range(230, 420), rng.range(-2600, 2600));
+    // A few low scud clouds as well as the high layer.
+    const low = i % 5 === 0;
+    sprite.position.set(
+      rng.range(-2600, 2600),
+      low ? rng.range(140, 200) : rng.range(230, 430),
+      rng.range(-2600, 2600),
+    );
     sprite.userData.drift = rng.range(1.5, 4);
     scene.add(sprite);
     clouds.push(sprite);

@@ -25,9 +25,13 @@ export function applyShot(api, name) {
     api.setMission('rings');
     api.startMission();
     api.rings.markPassed(2);
-    // 60 m before ring 3, on the course line from ring 2.
-    a.position.set(-370, 205, -52);
-    a.heading = 3.81; // ~218 deg, along the course toward ring 3
+    // Approach ring 3 ON its normal axis (it faces ring 4), ~220 m back,
+    // so after 30 frames of sim drift the ring reads as a full circle
+    // framing the sky instead of an edge-on bar — and the clip check never
+    // fires. Ring 3 (-420, 210, -120) faces ring 4 (-260, 230, -420):
+    // normal ≈ (0.47, -0.88), heading ≈ 2.65 rad.
+    a.position.set(-524, 205, 74);
+    a.heading = 2.65;
     a.pitch = 0.02;
     a.roll = -0.18;
     a.speed = 62;
@@ -38,8 +42,9 @@ export function applyShot(api, name) {
   } else if (name === 'landing') {
     api.setMission('hop');
     api.startMission();
-    // On final approach to Merapi Field: runway ahead, island behind it.
-    a.position.set(60, 38, 1140);
+    // On final approach to Merapi Field: closer in than v1, so the runway
+    // fills the lower frame; threshold at z=1030, plane ends right over it.
+    a.position.set(60, 32, 1080);
     a.heading = Math.PI;
     a.pitch = -0.06;
     a.roll = 0;
@@ -49,7 +54,6 @@ export function applyShot(api, name) {
     a.onGround = false;
     a.airborne = true;
     a.verticalSpeed = -2.8;
-    api.spawnDust(60, 8, 950, 18);
     api.setCamera('chase');
   }
   return name;

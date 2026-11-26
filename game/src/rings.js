@@ -47,7 +47,7 @@ export function createRings(scene) {
   group.name = 'sky-rings';
   scene.add(group);
   const rings = [];
-  const ringGeo = new THREE.TorusGeometry(15, 1.4, 10, 40);
+  const ringGeo = new THREE.TorusGeometry(15, 1.7, 10, 40);
   COURSE.forEach((spot, i) => {
     const mat = new THREE.MeshBasicMaterial({ color: PALETTE.ring });
     const mesh = new THREE.Mesh(ringGeo, mat);
@@ -126,7 +126,12 @@ export function createRings(scene) {
     prevSide = null;
   }
 
-  return { reset, setVisible, checkPass, nextRing, passedCount, totalCount, markPassed, group };
+  // Minimap data: ring centres in world xz, with passed state.
+  function positions() {
+    return rings.map((r) => ({ x: r.center.x, z: r.center.z, passed: r.passed }));
+  }
+
+  return { reset, setVisible, checkPass, nextRing, passedCount, totalCount, markPassed, positions, group };
 }
 
 const DROP_SPOTS = [
