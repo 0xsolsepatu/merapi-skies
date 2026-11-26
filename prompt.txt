@@ -1,0 +1,1 @@
+Check every 4 hours for NEW make.fun competitions; if one appears, build it autonomously WITHOUT her approval, using all skills + Gemini as reviewer; after the build, compare against ranks 1–10 and iterate (more research, find supporting skills) until it can plausibly approach rank 10; then PUSH to GitHub without her approval.
